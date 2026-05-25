@@ -1,0 +1,14 @@
+---
+# roles/truenas_dataset/defaults/main.yml
+
+truenas_api_base: ~
+truenas_api_key: ~
+
+truenas_pool: atl
+
+# Consumed directly from group_vars/all/users.yml.
+# Shape expected per dataset entry:
+#   name: str
+#   path: str
+#   children: list of { name: str, path: str }  (optional)
+truenas_datasets: []

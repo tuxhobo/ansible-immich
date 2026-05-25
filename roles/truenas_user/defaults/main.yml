@@ -1,0 +1,12 @@
+---
+# roles/truenas_user/defaults/main.yml
+#
+# Values sourced from group_vars/all.yml.
+# Override at playbook or host level if needed.
+
+truenas_api_base: ~
+truenas_api_key: ~
+
+immich_user: immich
+immich_uid: 9123
+immich_gid: 9123

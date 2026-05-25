@@ -1,0 +1,30 @@
+---
+# playbooks/deploy_immich_data.yml
+#
+# Configures TrueNAS storage for Immich: user, datasets, and NFS exports.
+# Each role is independently tagged and idempotent.
+#
+# Usage:
+#   ansible-playbook playbooks/deploy_immich_data.yml              # full run
+#   ansible-playbook playbooks/deploy_immich_data.yml --tags truenas_user
+#   ansible-playbook playbooks/deploy_immich_data.yml --tags truenas_dataset
+#   ansible-playbook playbooks/deploy_immich_data.yml --tags truenas_nfs_share
+
+- name: Configure TrueNAS storage for Immich
+  hosts: truenas
+  gather_facts: false
+
+  vars:
+    truenas_api_base: "https://{{ ansible_host }}/api/v2.0"
+    truenas_api_key: "{{ vault_truenas_lala110_api_key }}"
+
+  roles:
+    - role: truenas_user
+      tags: truenas_user
+
+    - role: truenas_dataset
+      tags: truenas_dataset
+
+    - role: truenas_nfs_share
+      tags: truenas_nfs_share
+

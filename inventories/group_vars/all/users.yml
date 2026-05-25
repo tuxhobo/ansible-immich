@@ -1,0 +1,57 @@
+# ./inventories/group_vars/all/users.yml
+
+immich_users:
+- username: ted
+  email: ted@lalalandus.com
+  role: admin
+  library_path: /mnt/atl/immich/ted
+
+- username: sally
+  email: sally@lalalandus.com
+  role: user
+  library_path: /mnt/atl/immich/sally
+
+- username: btian
+  email: brian@lalalandus.com
+  role: user
+  library_path: null
+
+immich_service_accounts:
+- username: immich-archive
+  role: user
+  external_library: /mnt/nfs/images
+  note: "Owns archive library. Partner-shared to all users."
+
+immich_external_libraries:
+- owner: immich-archive
+  nfs_path: /mnt/nfs/images
+  label: "Historical Archive"
+- owner: btian
+  nfs_path: null
+  label: "Brian Archive — deferred"
+
+truenas_datasets:
+  - name: "{{ truenas_immich_base | basename }}"       # immich
+    path: "{{ truenas_immich_base }}"
+    children:
+      - name: ted
+        path: "{{ truenas_immich_base }}/ted"
+      - name: sally
+        path: "{{ truenas_immich_base }}/sally"
+
+truenas_nfs_exports:
+  - path: "{{ truenas_immich_base }}/ted"
+    comment: "Immich user library — ted"
+    clients:
+      - ip: 10.0.0.115
+        access: rw
+  - path: "{{ truenas_immich_base }}/sally"
+    comment: "Immich user library — sally"
+    clients:
+      - ip: 10.0.0.115
+        access: rw
+  - path: "{{ truenas_images_path }}"
+    comment: "Immich archive — read-only"
+    clients:
+      - ip: 10.0.0.115
+        access: ro

@@ -1,0 +1,81 @@
+---
+# roles/truenas_dataset/tasks/main.yml
+#
+# Creates ZFS datasets on TrueNAS via the v2.0 REST API.
+# Processes parent datasets first, then children.
+# Idempotent: 422 on duplicate is treated as success.
+# Ownership is set to immich:immich (UID/GID 9123) on each dataset mountpoint.
+
+- name: Create parent datasets
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/pool/dataset"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      name: "{{ truenas_pool }}/{{ item.name }}"
+      type: FILESYSTEM
+      aclmode: DISCARD
+      acltype: POSIX
+    validate_certs: false
+    status_code: [200, 422]
+  loop: "{{ truenas_datasets }}"
+  register: parent_result
+  changed_when: parent_result.status == 200
+
+- name: Create child datasets
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/pool/dataset"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      name: "{{ truenas_pool }}/{{ item.0.name }}/{{ item.1.name }}"
+      type: FILESYSTEM
+      aclmode: DISCARD
+      acltype: POSIX
+    validate_certs: false
+    status_code: [200, 422]
+  loop: "{{ truenas_datasets | subelements('children', skip_missing=True) }}"
+  register: child_result
+  changed_when: child_result.status == 200
+
+- name: Set ownership on parent dataset mountpoints
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/filesystem/chown"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body: "{{ {
+      'path': item.path,
+      'uid': immich_uid | int,
+      'gid': immich_gid | int,
+      'options': {'recursive': false}
+    } }}"
+    validate_certs: false
+    status_code: 200
+  loop: "{{ truenas_datasets }}"
+
+- name: Set ownership on child dataset mountpoints
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/filesystem/chown"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body: "{{ {
+      'path': item.1.path,
+      'uid': immich_uid | int,
+      'gid': immich_gid | int,
+      'options': {'recursive': false}
+    } }}"
+    validate_certs: false
+    status_code: 200
+  loop: "{{ truenas_datasets | subelements('children', skip_missing=True) }}"

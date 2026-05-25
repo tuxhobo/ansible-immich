@@ -1,0 +1,14 @@
+---
+# roles/truenas_nfs_share/defaults/main.yml
+
+truenas_api_base: ~
+truenas_api_key: ~
+
+# Consumed directly from group_vars/all/users.yml.
+# Shape expected per export entry:
+#   path: str
+#   comment: str
+#   clients:
+#     - ip: str
+#       access: ro | rw
+truenas_nfs_exports: []

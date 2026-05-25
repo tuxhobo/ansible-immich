@@ -1,0 +1,67 @@
+---
+# roles/truenas_nfs_share/tasks/main.yml
+#
+# Creates NFS share exports on TrueNAS via the v2.0 REST API.
+# One share per entry in truenas_nfs_exports.
+# Idempotent: checks for existing share by path before creating.
+# Does not modify existing shares — rerun after manual deletion if changes needed.
+#
+# TrueNAS NFS share API field notes:
+#   ro: true  maps to access: ro in inventory
+#   hosts: list of IP strings for allowed clients
+#   mapall_user / mapall_group: left unset — inherits dataset ownership
+
+- name: Query existing NFS shares
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/sharing/nfs"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+    validate_certs: false
+    status_code: 200
+  register: existing_shares
+  check_mode: false
+
+- name: Create NFS shares
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/sharing/nfs"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      path: "{{ item.path }}"
+      comment: "{{ item.comment }}"
+      hosts: "{{ item.clients | map(attribute='ip') | list }}"
+      ro: "{{ (item.clients | selectattr('access', 'equalto', 'ro') | list | length > 0) }}"
+      enabled: true
+    validate_certs: false
+    status_code: 200
+  loop: "{{ truenas_nfs_exports }}"
+  when: >
+    (existing_shares.json | default([]))
+    | selectattr('path', 'equalto', item.path)
+    | list
+    | length == 0
+  register: share_result
+  changed_when: share_result.status == 200
+
+- name: Reload NFS service
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/service/reload"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body:
+      service: nfs
+    validate_certs: false
+    status_code: 200
+  when: >
+    share_result.results
+    | rejectattr('skipped', 'defined')
+    | selectattr('changed', 'equalto', true)
+    | list
+    | length > 0

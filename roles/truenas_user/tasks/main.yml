@@ -1,0 +1,88 @@
+---
+# roles/truenas_user/tasks/main.yml
+#
+# Creates the immich group and user on TrueNAS via the v2.0 REST API.
+# Idempotent: checks for existence before creating.
+# No sudo or shell access is granted.
+#
+# Integer fields (gid, uid, group) are passed via a Jinja2 dict expression
+# so body_format: json serializes them as JSON integers, not strings.
+
+- name: Check if immich group exists
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/group?name={{ immich_user }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+    validate_certs: false
+    status_code: 200
+  register: group_query
+  check_mode: false
+
+- name: Create immich group
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/group"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body: "{{ {
+      'name': immich_user,
+      'gid': immich_gid | int,
+      'sudo_commands': [],
+      'sudo_commands_nopasswd': [],
+      'smb': false
+    } }}"
+    validate_certs: false
+    status_code: 200
+  when: (group_query.json | default([])) | length == 0
+
+- name: Fetch immich group record
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/group?name={{ immich_user }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+    validate_certs: false
+    status_code: 200
+  register: group_record
+  check_mode: false
+
+- name: Check if immich user exists
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/user?username={{ immich_user }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+    validate_certs: false
+    status_code: 200
+  register: user_query
+  check_mode: false
+
+- name: Create immich user
+  ansible.builtin.uri:
+    url: "{{ truenas_api_base }}/user"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ truenas_api_key }}"
+      Content-Type: application/json
+    body_format: json
+    body: "{{ {
+      'username': immich_user,
+      'uid': immich_uid | int,
+      'group_create': false,
+      'group': (group_record.json | first).id | int,
+      'full_name': 'Immich Service Account',
+      'password_disabled': true,
+      'locked': true,
+      'shell': '/usr/sbin/nologin',
+      'home': '/var/empty',
+      'home_create': false,
+      'sudo_commands': [],
+      'sudo_commands_nopasswd': [],
+      'smb': false
+    } }}"
+    validate_certs: false
+    status_code: 200
+  when: (user_query.json | default([])) | length == 0

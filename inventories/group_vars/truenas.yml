@@ -1,0 +1,5 @@
+# ./inventories/group_vars/truenas.yml
+
+truenas_host: 10.0.0.110
+truenas_api_base: "https://{{ truenas_host }}/api/v2.0"
+truenas_api_key: "{{ vault_truenas_api_key }}"
