@@ -1,13 +1,10 @@
-# ./inventories/group_vars/all.yml
+# inventories/group_vars/all/all.yml
+# Vars shared across all hosts
 
 domain: lalalandus.com
 
 nfs_server: lala110
 nfs_server_ip: 10.0.0.110
-
-truenas_pool: atl
-truenas_images_path: /mnt/atl/images
-truenas_immich_base: /mnt/atl/immich
 
 immich_user: immich
 immich_uid: 9123

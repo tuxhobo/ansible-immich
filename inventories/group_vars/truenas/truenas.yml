@@ -1,0 +1,34 @@
+# inventories/group_vars/truenas/truenas.yml
+
+truenas_api_url: "https://10.0.0.110/api/v2.0"
+truenas_validate_certs: false   # self-signed cert — intentional
+
+truenas_pool: atl
+truenas_images_path: /mnt/atl/images
+truenas_immich_base: /mnt/atl/immich
+
+truenas_datasets:
+  - name: immich
+    path: "{{ truenas_immich_base }}"
+    children:
+      - name: ted
+        path: "{{ truenas_immich_base }}/ted"
+      - name: sally
+        path: "{{ truenas_immich_base }}/sally"
+
+truenas_nfs_exports:
+  - path: "{{ truenas_immich_base }}/ted"
+    comment: "Immich user library — ted"
+    clients:
+      - ip: 10.0.0.115
+        access: rw
+  - path: "{{ truenas_immich_base }}/sally"
+    comment: "Immich user library — sally"
+    clients:
+      - ip: 10.0.0.115
+        access: rw
+  - path: "{{ truenas_images_path }}"
+    comment: "Immich archive — read-only"
+    clients:
+      - ip: 10.0.0.115
+        access: ro
