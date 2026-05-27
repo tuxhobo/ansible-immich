@@ -1,0 +1,81 @@
+---
+# roles/immich_config/tasks/main.yml
+#
+# 1. Creates the compose project directory layout on the Docker host.
+# 2. Creates local data subdirectories with correct ownership.
+# 3. Templates .env file from vault variables.
+# 4. Templates docker-compose.yml.
+# 5. Runs docker compose up -d.
+#
+# Idempotent. Safe to re-run. compose up is a no-op if containers are current.
+
+- name: Create compose project directory
+  ansible.builtin.file:
+    path: "{{ immich_compose_base }}"
+    state: directory
+    owner: "{{ immich_user }}"
+    group: "{{ immich_user }}"
+    mode: "0750"
+
+# All runtime data lives under ./data to keep it clearly separated from
+# config files (docker-compose.yml, .env) in the project root.
+- name: Create data subdirectories
+  ansible.builtin.file:
+    path: "{{ immich_compose_base }}/data/{{ item.name }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    # Postgres data — owned by the postgres container user (UID 999 in the
+    # official postgres image). Do not change this to immich — postgres will
+    # refuse to start if the data dir is owned by a different user.
+    - name: db
+      owner: "999"
+      group: "999"
+      mode: "0700"
+    # Machine learning model cache — owned by immich
+    - name: model-cache
+      owner: "{{ immich_uid }}"
+      group: "{{ immich_gid }}"
+      mode: "0750"
+
+- name: Template .env file
+  ansible.builtin.template:
+    src: immich.env.j2
+    dest: "{{ immich_compose_base }}/.env"
+    owner: "{{ immich_user }}"
+    group: "{{ immich_user }}"
+    mode: "0640"
+  # .env contains secrets — notify handler to restart stack if it changes
+  notify: Restart immich stack
+
+- name: Template docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ immich_compose_base }}/docker-compose.yml"
+    owner: "{{ immich_user }}"
+    group: "{{ immich_user }}"
+    mode: "0640"
+  notify: Restart immich stack
+
+- name: Pull Immich images
+  community.docker.docker_compose_v2_pull:
+    project_src: "{{ immich_compose_base }}"
+  register: pull_result
+
+- name: Start Immich stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ immich_compose_base }}"
+    state: present
+  register: compose_result
+
+- name: Wait for Immich server to become ready
+  ansible.builtin.uri:
+    url: "http://localhost:{{ immich_server_port }}"
+    method: GET
+    status_code: [200, 302]
+  register: immich_ready
+  retries: 12
+  delay: 10
+  until: immich_ready.status in [200, 302]

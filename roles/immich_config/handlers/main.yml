@@ -1,0 +1,7 @@
+---
+# roles/immich_config/handlers/main.yml
+
+- name: Restart immich stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ immich_compose_base }}"
+    state: restarted

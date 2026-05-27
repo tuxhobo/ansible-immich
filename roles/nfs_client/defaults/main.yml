@@ -1,0 +1,10 @@
+---
+# roles/nfs_client/defaults/main.yml
+#
+# Consumed from group_vars/docker_hosts/docker_hosts.yml.
+# Shape expected per mount entry:
+#   src:  str   — NFS export path (server:/path)
+#   path: str   — local mountpoint
+#   opts: str   — mount options
+
+immich_nfs_mounts: []

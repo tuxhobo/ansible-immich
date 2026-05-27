@@ -1,0 +1,64 @@
+---
+# roles/nfs_client/tasks/main.yml
+#
+# Idempotent. Safe to re-run.
+#
+# 1. Ensure nfs-common is installed.
+# 2. Create local mountpoint directories.
+# 3. Verify each NFS export is reachable from the host (showmount check).
+#    Fails fast — do not proceed if a share is not advertised by the server.
+# 4. Mount NFS shares and persist in /etc/fstab.
+# 5. Assert each mountpoint is actually mounted after the mount tasks complete.
+
+- name: Install nfs-common
+  ansible.builtin.package:
+    name: nfs-common
+    state: present
+
+- name: Create NFS mountpoint directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ immich_nfs_mounts }}"
+
+# showmount requires rpcbind. On some NFS v4-only setups showmount may not
+# list exports even when the share is healthy. If this causes false negatives
+# in your environment, replace this task with a direct mount attempt and rely
+# on the assertion below to catch failures.
+- name: Verify NFS exports are advertised by server
+  ansible.builtin.command:
+    cmd: "showmount -e {{ nfs_server_ip }}"
+  register: showmount_result
+  changed_when: false
+  failed_when: showmount_result.rc != 0
+
+- name: Fail if expected NFS export is not advertised
+  ansible.builtin.fail:
+    msg: >
+      NFS export '{{ item.src | regex_replace('^[^:]+:', '') }}' is not listed
+      in showmount output from {{ nfs_server_ip }}.
+      Run deploy_immich_data.yml --tags truenas_nfs_share first.
+  loop: "{{ immich_nfs_mounts }}"
+  when: >
+    (item.src | regex_replace('^[^:]+:', ''))
+    not in showmount_result.stdout
+
+- name: Mount NFS shares and write fstab entries
+  ansible.posix.mount:
+    src: "{{ item.src }}"
+    path: "{{ item.path }}"
+    fstype: nfs
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ immich_nfs_mounts }}"
+
+- name: Assert all NFS mountpoints are mounted
+  ansible.builtin.command:
+    cmd: "mountpoint -q {{ item.path }}"
+  changed_when: false
+  loop: "{{ immich_nfs_mounts }}"
+  register: mount_check
+  failed_when: mount_check.rc != 0

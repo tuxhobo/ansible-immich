@@ -1,0 +1,37 @@
+---
+# playbooks/deploy_immich.yml
+#
+# Deploys the Immich photo management stack on docker01.
+# Assumes deploy_immich_data.yml has already run successfully (TrueNAS
+# datasets, NFS exports, and immich user on TrueNAS are prerequisites).
+#
+# Roles run in order:
+#   1. nfs_client       — install nfs-common, verify + mount NFS shares, fstab
+#   2. linux_user       — create immich user/group on the Docker host (UID/GID 9123)
+#   3. immich_config    — directory layout, .env, docker-compose.yml, compose up
+#   4. immich_smoke_test — post-deploy assertions; fail fast on any failure
+#
+# Usage:
+#   ansible-playbook playbooks/deploy_immich.yml              # full run
+#   ansible-playbook playbooks/deploy_immich.yml --tags nfs_client
+#   ansible-playbook playbooks/deploy_immich.yml --tags linux_user
+#   ansible-playbook playbooks/deploy_immich.yml --tags immich_config
+#   ansible-playbook playbooks/deploy_immich.yml --tags smoke_test
+
+- name: Deploy Immich on docker01
+  hosts: docker_hosts
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: nfs_client
+      tags: nfs_client
+
+    - role: linux_user
+      tags: linux_user
+
+    - role: immich_config
+      tags: immich_config
+
+    - role: immich_smoke_test
+      tags: smoke_test

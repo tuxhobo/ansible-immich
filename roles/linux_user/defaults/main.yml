@@ -1,0 +1,9 @@
+---
+# roles/linux_user/defaults/main.yml
+#
+# Sourced from group_vars/all/all.yml.
+# Must match TrueNAS immich user UID/GID exactly so NFS ownership resolves correctly.
+
+immich_user: immich
+immich_uid: 9123
+immich_gid: 9123

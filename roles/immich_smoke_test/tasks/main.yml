@@ -1,0 +1,80 @@
+---
+# roles/immich_smoke_test/tasks/main.yml
+#
+# Post-deploy assertions. All tasks are read-only. None make changes.
+# Any failure here means the deployment is not healthy — investigate before use.
+#
+# Checks:
+#   1. All four containers are running (not restarting).
+#   2. Postgres is accepting connections.
+#   3. Immich HTTP endpoint returns 200 or 302.
+#   4. NFS write mount accepts a write (immich/ted).
+#   5. NFS read-only mount rejects a write (images).
+
+- name: Get running container list
+  ansible.builtin.command:
+    cmd: >
+      docker compose -f {{ immich_compose_base }}/docker-compose.yml
+      ps --format json
+  register: compose_ps
+  changed_when: false
+
+- name: Assert all Immich containers are running
+  ansible.builtin.assert:
+    that:
+      - >
+        (compose_ps.stdout | from_json)
+        | selectattr('Name', 'equalto', item)
+        | selectattr('State', 'equalto', 'running')
+        | list | length == 1
+    fail_msg: "Container {{ item }} is not in running state."
+    success_msg: "Container {{ item }} is running."
+  loop:
+    - immich_server
+    - immich_machine_learning
+    - immich_postgres
+    - immich_redis
+
+- name: Assert Postgres is accepting connections
+  ansible.builtin.command:
+    cmd: docker exec immich_postgres pg_isready
+  register: pg_ready
+  changed_when: false
+  failed_when: pg_ready.rc != 0
+
+- name: Assert Immich HTTP endpoint is reachable
+  ansible.builtin.uri:
+    url: "http://localhost:{{ immich_server_port }}"
+    method: GET
+    status_code: [200, 302]
+  register: http_check
+
+- name: Assert NFS user mount accepts writes
+  ansible.builtin.tempfile:
+    path: /mnt/nfs/immich/ted
+    state: file
+    prefix: ansible_smoke_
+  register: nfs_write_test
+
+- name: Remove NFS write test file
+  ansible.builtin.file:
+    path: "{{ nfs_write_test.path }}"
+    state: absent
+  when: nfs_write_test.path is defined
+
+- name: Assert NFS archive mount is read-only
+  ansible.builtin.command:
+    cmd: "touch /mnt/nfs/images/.ansible_smoke_test"
+  register: ro_check
+  changed_when: false
+  failed_when: ro_check.rc == 0
+  # rc != 0 (permission denied) is the expected result — mount is correctly read-only
+
+- name: Print smoke test summary
+  ansible.builtin.debug:
+    msg:
+      - "All containers running:       OK"
+      - "Postgres accepting connections: OK"
+      - "Immich HTTP endpoint:         OK ({{ http_check.status }})"
+      - "NFS rw mount writable:        OK"
+      - "NFS ro mount read-only:       OK"

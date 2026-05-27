@@ -1,0 +1,21 @@
+---
+# roles/immich_config/defaults/main.yml
+#
+# Sourced from group_vars/docker_hosts/docker_hosts.yml and vault.
+
+# Paths
+immich_compose_base: /home/docker-data/compose/immich
+
+# Image tag — override in group_vars after first stable deploy
+immich_version: "release"
+
+# Ports
+immich_server_port: 2283
+
+# Postgres
+immich_db_name: immich
+immich_db_user: postgres
+
+# These must be defined in vault — no defaults provided
+# vault_immich_db_password: ~
+# vault_immich_jwt_secret: ~

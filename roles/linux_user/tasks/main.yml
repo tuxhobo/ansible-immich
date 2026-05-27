@@ -1,0 +1,39 @@
+---
+# roles/linux_user/tasks/main.yml
+#
+# Creates the immich group and user on the Docker host.
+# UID/GID 9123 must match the TrueNAS immich user exactly.
+# NFS ownership resolution depends on this — wrong UID = permission errors at runtime.
+#
+# Idempotent. Safe to re-run.
+
+- name: Create immich group
+  ansible.builtin.group:
+    name: "{{ immich_user }}"
+    gid: "{{ immich_gid }}"
+    state: present
+
+- name: Create immich system user
+  ansible.builtin.user:
+    name: "{{ immich_user }}"
+    uid: "{{ immich_uid }}"
+    group: "{{ immich_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+    state: present
+
+- name: Verify UID matches expected value
+  ansible.builtin.command:
+    cmd: "id -u {{ immich_user }}"
+  register: uid_check
+  changed_when: false
+  failed_when: uid_check.stdout | int != immich_uid | int
+
+- name: Verify GID matches expected value
+  ansible.builtin.command:
+    cmd: "id -g {{ immich_user }}"
+  register: gid_check
+  changed_when: false
+  failed_when: gid_check.stdout | int != immich_gid | int
