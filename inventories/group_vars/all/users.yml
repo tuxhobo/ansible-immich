@@ -1,57 +1,39 @@
-# ./inventories/group_vars/all/users.yml
+# inventories/group_vars/all/users.yml
 
 immich_users:
-- username: ted
-  email: ted@lalalandus.com
-  role: admin
-  library_path: /mnt/atl/immich/ted
+  - username: ted
+    email: ted@lalalandus.com
+    role: admin
 
-- username: sally
-  email: sally@lalalandus.com
-  role: user
-  library_path: /mnt/atl/immich/sally
+  - username: sally
+    email: sally@lalalandus.com
+    role: user
 
-- username: btian
-  email: brian@lalalandus.com
-  role: user
-  library_path: null
+  - username: brian
+    email: brian@lalalandus.com
+    role: user
 
+# Service accounts — not real people, used to own shared libraries.
 immich_service_accounts:
-- username: immich-archive
-  role: user
-  external_library: /mnt/nfs/images
-  note: "Owns archive library. Partner-shared to all users."
+  - username: immich-archive
+    role: user
+    note: "Owns historical archive library. Partner-shared to all users."
 
+# External libraries — indexed in place, files never moved.
+# container_path is the mount path as seen inside the immich-server container.
+# partner_share lists the usernames who can see this library.
 immich_external_libraries:
-- owner: immich-archive
-  nfs_path: /mnt/nfs/images
-  label: "Historical Archive"
-- owner: btian
-  nfs_path: null
-  label: "Brian Archive — deferred"
+  - owner: immich-archive
+    container_path: /usr/src/app/external-library/archive
+    label: "Historical Archive"
+    partner_share:
+      - ted
+      - sally
+      - brian
 
-truenas_datasets:
-  - name: "{{ truenas_immich_base | basename }}"       # immich
-    path: "{{ truenas_immich_base }}"
-    children:
-      - name: ted
-        path: "{{ truenas_immich_base }}/ted"
-      - name: sally
-        path: "{{ truenas_immich_base }}/sally"
-
-truenas_nfs_exports:
-  - path: "{{ truenas_immich_base }}/ted"
-    comment: "Immich user library — ted"
-    clients:
-      - ip: 10.0.0.115
-        access: rw
-  - path: "{{ truenas_immich_base }}/sally"
-    comment: "Immich user library — sally"
-    clients:
-      - ip: 10.0.0.115
-        access: rw
-  - path: "{{ truenas_images_path }}"
-    comment: "Immich archive — read-only"
-    clients:
-      - ip: 10.0.0.115
-        access: ro
+  - owner: brian
+    container_path: /usr/src/app/external-library/brian
+    label: "Brian's Library"
+    partner_share:
+      - ted
+      - sally

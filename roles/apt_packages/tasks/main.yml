@@ -1,0 +1,20 @@
+---
+# roles/apt_packages/tasks/main.yml
+#
+# Installs packages listed in apt_packages via apt.
+# Reusable across any Debian/Ubuntu host group.
+# Package list is defined entirely in inventory — this role has no opinion
+# about what gets installed.
+#
+# Idempotent. Safe to re-run.
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600  # skip update if cache is less than 1 hour old
+
+- name: Install packages
+  ansible.builtin.apt:
+    name: "{{ apt_packages }}"
+    state: present
+  when: apt_packages | length > 0

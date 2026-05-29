@@ -2,38 +2,34 @@
 # roles/nfs_client/tasks/main.yml
 #
 # Idempotent. Safe to re-run.
+# Prerequisite: nfs-common must be installed before this role runs.
+#               Use the apt_packages role to ensure it is present.
 #
-# 1. Ensure nfs-common is installed.
-# 2. Create local mountpoint directories.
-# 3. Verify each NFS export is reachable from the host (showmount check).
+# 1. Create local mountpoint directories.
+# 2. Verify each NFS export is reachable from the host (showmount check).
 #    Fails fast — do not proceed if a share is not advertised by the server.
-# 4. Mount NFS shares and persist in /etc/fstab.
-# 5. Assert each mountpoint is actually mounted after the mount tasks complete.
-
-- name: Install nfs-common
-  ansible.builtin.package:
-    name: nfs-common
-    state: present
+# 3. Mount NFS shares and persist in /etc/fstab.
+# 4. Assert each mountpoint is actually mounted.
 
 - name: Create NFS mountpoint directories
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
-    owner: root
-    group: root
-    mode: "0755"
+  # No owner/group/mode — mountpoints may already be NFS-mounted.
+  # Ownership on the mounted filesystem is governed by TrueNAS, not the client.
   loop: "{{ immich_nfs_mounts }}"
 
 # showmount requires rpcbind. On some NFS v4-only setups showmount may not
 # list exports even when the share is healthy. If this causes false negatives
-# in your environment, replace this task with a direct mount attempt and rely
-# on the assertion below to catch failures.
+# in your environment, replace with a direct mount attempt and rely on the
+# assertion below to catch failures.
 - name: Verify NFS exports are advertised by server
   ansible.builtin.command:
     cmd: "showmount -e {{ nfs_server_ip }}"
   register: showmount_result
   changed_when: false
   failed_when: showmount_result.rc != 0
+  check_mode: false  # read-only query — always run, even in check mode
 
 - name: Fail if expected NFS export is not advertised
   ansible.builtin.fail:
@@ -62,3 +58,4 @@
   loop: "{{ immich_nfs_mounts }}"
   register: mount_check
   failed_when: mount_check.rc != 0
+  when: not ansible_check_mode  # mounts are skipped in check mode; assertion would always fail

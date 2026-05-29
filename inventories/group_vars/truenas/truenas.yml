@@ -6,29 +6,28 @@ truenas_validate_certs: false   # self-signed cert — intentional
 truenas_pool: atl
 truenas_images_path: /mnt/atl/images
 truenas_immich_base: /mnt/atl/immich
+truenas_brian_path: /mnt/atl/home/brian
 
 truenas_datasets:
   - name: immich
     path: "{{ truenas_immich_base }}"
-    children:
-      - name: ted
-        path: "{{ truenas_immich_base }}/ted"
-      - name: sally
-        path: "{{ truenas_immich_base }}/sally"
+    # No children — immich manages its own layout inside this dataset.
+    # ted/sally child datasets removed; per-user separation is handled
+    # by Immich in the database, not the filesystem.
 
 truenas_nfs_exports:
-  - path: "{{ truenas_immich_base }}/ted"
-    comment: "Immich user library — ted"
-    clients:
-      - ip: 10.0.0.115
-        access: rw
-  - path: "{{ truenas_immich_base }}/sally"
-    comment: "Immich user library — sally"
+  - path: "{{ truenas_immich_base }}"
+    comment: "Immich upload root — all managed photos"
     clients:
       - ip: 10.0.0.115
         access: rw
   - path: "{{ truenas_images_path }}"
-    comment: "Immich archive — read-only"
+    comment: "Immich historical archive — read-only"
+    clients:
+      - ip: 10.0.0.115
+        access: ro
+  - path: "{{ truenas_brian_path }}"
+    comment: "Brian external library — read-only"
     clients:
       - ip: 10.0.0.115
         access: ro

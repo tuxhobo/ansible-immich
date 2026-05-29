@@ -1,0 +1,11 @@
+---
+# roles/apt_packages/defaults/main.yml
+#
+# apt_packages is intentionally empty here.
+# Define it in group_vars or host_vars for each target group.
+# Example:
+#   apt_packages:
+#     - nfs-common
+#     - curl
+
+apt_packages: []

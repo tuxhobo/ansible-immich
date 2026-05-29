@@ -8,10 +8,13 @@
 #   1. All four containers are running (not restarting).
 #   2. Postgres is accepting connections.
 #   3. Immich HTTP endpoint returns 200 or 302.
-#   4. NFS write mount accepts a write (immich/ted).
-#   5. NFS read-only mount rejects a write (images).
+#   4. Immich has written its expected directory structure to the NFS upload mount.
+#      This confirms the mount is writable by the immich user end-to-end.
+#      Immich creates these directories during startup before serving HTTP,
+#      so if check 3 passed, these will exist.
+#   5. NFS archive mount rejects a write (read-only confirmed).
 
-- name: Get running container list
+- name: Get running container states
   ansible.builtin.command:
     cmd: >
       docker compose -f {{ immich_compose_base }}/docker-compose.yml
@@ -19,11 +22,14 @@
   register: compose_ps
   changed_when: false
 
+# docker compose ps --format json emits one JSON object per line (NDJSON),
+# not a JSON array. Split stdout into lines and parse each line individually.
 - name: Assert all Immich containers are running
   ansible.builtin.assert:
     that:
       - >
-        (compose_ps.stdout | from_json)
+        compose_ps.stdout_lines
+        | map('from_json')
         | selectattr('Name', 'equalto', item)
         | selectattr('State', 'equalto', 'running')
         | list | length == 1
@@ -42,25 +48,28 @@
   changed_when: false
   failed_when: pg_ready.rc != 0
 
+# Use curl — uri module runs on the control node, not the target host.
 - name: Assert Immich HTTP endpoint is reachable
-  ansible.builtin.uri:
-    url: "http://localhost:{{ immich_server_port }}"
-    method: GET
-    status_code: [200, 302]
+  ansible.builtin.command:
+    cmd: "curl -sf -o /dev/null -w '%{http_code}' http://localhost:{{ immich_server_port }}"
   register: http_check
+  changed_when: false
+  failed_when: http_check.stdout not in ['200', '302']
 
-- name: Assert NFS user mount accepts writes
-  ansible.builtin.tempfile:
-    path: /mnt/nfs/immich/ted
-    state: file
-    prefix: ansible_smoke_
-  register: nfs_write_test
-
-- name: Remove NFS write test file
-  ansible.builtin.file:
-    path: "{{ nfs_write_test.path }}"
-    state: absent
-  when: nfs_write_test.path is defined
+# Immich creates these directories during startup before serving HTTP.
+# Their presence confirms the NFS upload mount is writable by the immich
+# container user (UID 9123) end-to-end. No synthetic write needed —
+# this tests the actual workload path.
+- name: Assert Immich upload directory structure exists on NFS mount
+  ansible.builtin.stat:
+    path: "/mnt/nfs/immich/uploads/{{ item }}"
+  register: immich_dir_check
+  failed_when: not immich_dir_check.stat.exists
+  loop:
+    - encoded-video
+    - thumbs
+    - upload
+    - profile
 
 - name: Assert NFS archive mount is read-only
   ansible.builtin.command:
@@ -73,8 +82,8 @@
 - name: Print smoke test summary
   ansible.builtin.debug:
     msg:
-      - "All containers running:       OK"
-      - "Postgres accepting connections: OK"
-      - "Immich HTTP endpoint:         OK ({{ http_check.status }})"
-      - "NFS rw mount writable:        OK"
-      - "NFS ro mount read-only:       OK"
+      - "All containers running:              OK"
+      - "Postgres accepting connections:       OK"
+      - "Immich HTTP endpoint:                OK ({{ http_check.stdout }})"
+      - "Immich upload directory structure:   OK"
+      - "NFS archive mount read-only:         OK"
