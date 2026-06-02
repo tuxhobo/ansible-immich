@@ -490,17 +490,26 @@ ssh admin@10.0.0.115 "docker ps --filter name=immich --format 'table {{.Names}}\
 # Expected: all Up, no Restarting
 
 # 3. Postgres accessible
-ssh admin@10.0.0.115 "docker exec immich_postgres_1 pg_isready"
+ssh admin@10.0.0.115 "docker exec immich_postgres pg_isready"
 # Expected: accepting connections
 
+# 7. Verify timezone settings all containers in immich stack
+ssh admin@10.0.0.115 "docker exec immich_server date"
+ssh admin@10.0.0.115 "docker exec immich_postgres date"
+ssh admin@10.0.0.115 "docker exec immich_machine_learning date"
+ssh admin@10.0.0.115 "docker exec immich_redis date"
+# Expect time matchs the docker host time
+```
+
 # 4. Archive library visible
-# Log into UI as ted → verify archive photos appear via partner share
+# Log into UI as admin → verify archive photos appear via partner share
 
 # 5. iOS upload test
 # Upload one photo from iOS app as ted → confirm appears in UI
 # Confirm file lands at /mnt/nfs/immich/ted/<date>/filename
 
 # 6. NFS persistence after reboot (optional but recommended)
+```bash
 ssh admin@10.0.0.115 "sudo reboot"
 # After reboot:
 ssh -S admin@10.0.0.115 "sudo mount | grep nfs && docker ps | grep immich"
@@ -509,7 +518,24 @@ ssh -S admin@10.0.0.115 "sudo mount | grep nfs && docker ps | grep immich"
 
 ---
 
-## 9. Rollback
+## 9. Upgrades
+Changes to the docker-compose.yml.j2 file or the pinned immich version in docker_hosts.yml requires reloading the docker container.
+This reload can be accomplished without affecting resetting the immich environment by running the  following playbook:
+```bash
+ansible-playbook playbooks/deploy_immich.yml --tags immich_config
+```
+The smoke test can be run again to test the configuration update
+```bash
+ansible-playbook playbooks/deploy_immich.yml --tags immich_config,smoke_test
+```
+Both commands restarts all containers in the immich stack.
+
+After upgrade check the docker manifest
+```bash
+ssh admin@10.0.0.115 "docker manifest inspect ghcr.io/immich-app/immich-server:v2.7.5"
+```
+
+## 10. Rollback
 
 ```bash
 # Stop and remove the stack — NFS data is safe, local DB data is removed
@@ -528,7 +554,7 @@ Manual deletion via the TrueNAS UI is required if a full teardown is needed.
 
 ---
 
-## 10. Deferred Items
+## 11. Deferred Items
 
 | Item | Notes |
 |---|---|
@@ -543,7 +569,7 @@ Manual deletion via the TrueNAS UI is required if a full teardown is needed.
 
 ---
 
-## 11. Known Conditions
+## 12. Known Conditions
 
 - TrueNAS uses a self-signed TLS certificate. All API calls use `validate_certs: false`. This is intentional and documented in `inventories/group_vars/truenas/truenas.yml`.
 - `/mnt/atl/images` is owned by `ted:ted (UID 3000)` with mode `0775`. The world-readable bit allows the `immich` container (UID 9123) read access without an ownership change. This is intentional.
