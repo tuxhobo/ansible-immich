@@ -16,6 +16,7 @@ services:
     ports:
       - "{{ immich_server_port }}:{{ immich_server_port }}"
     environment:
+      - TZ={{ immich_timezone }}
       - DB_HOSTNAME=${DB_HOSTNAME}
       - DB_DATABASE_NAME=${DB_DATABASE_NAME}
       - DB_USERNAME=${DB_USERNAME}
@@ -35,6 +36,8 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
     container_name: immich_machine_learning
     restart: unless-stopped
+    environment:
+      - TZ={{ immich_timezone }}
     volumes:
       - {{ immich_compose_base }}/data/model-cache:/cache
     user: "{{ immich_uid }}:{{ immich_gid }}"
@@ -43,6 +46,8 @@ services:
     image: docker.io/redis:6.2-alpine
     container_name: immich_redis
     restart: unless-stopped
+    environment:
+      - TZ={{ immich_timezone }}
     healthcheck:
       test: redis-cli ping
       interval: 10s
@@ -56,6 +61,7 @@ services:
     container_name: immich_postgres
     restart: unless-stopped
     environment:
+      - TZ={{ immich_timezone }}
       - POSTGRES_DB=${DB_DATABASE_NAME}
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}

@@ -2,8 +2,9 @@
 
 docker_data_root: /home/docker-data
 immich_compose_base: /home/admin/immich
+immich_timezone: "America/New_York"
 
-immich_version: "release"   # pin to e.g. v1.132.3 after first stable deploy
+immich_version: "v2.7.5"   # pin after first stable deploy
 
 apt_packages:
   - nfs-common
