@@ -76,7 +76,6 @@ Ansible Control Node (WSL2)
 |---|---|---|---|
 | `/mnt/nfs/immich/uploads` | `/usr/src/app/upload` | rw | All mobile uploads |
 | `/mnt/nfs/images` | `/usr/src/app/external-library/archive` | ro | Historical archive |
-| `/mnt/nfs/brian` | `/usr/src/app/external-library/brian` | ro | Brian's library (deferred) |
 
 ---
 
@@ -105,8 +104,7 @@ Ansible Control Node (WSL2)
 | Dataset | Path | Owner | Mode | Purpose |
 |---|---|---|---|---|
 | `atl/immich` | `/mnt/atl/immich` | immich:immich (9123) | 0750 | All Immich-managed uploads |
-| `atl/images` | `/mnt/atl/images` | ted:ted (3000) | 0775 | Historical archive (pre-existing) |
-| `atl/home/brian` | `/mnt/atl/home/brian` | brian:brian | 0700 | Brian's library (deferred — perms block access) |
+| `atl/images` | `/mnt/atl/images` | user:user (3000) | 0775 | Historical archive (pre-existing) |
 
 ZFS pool `atl` is configured with `acltype: posix` and `aclmode: discard`. No NFSv4 ACLs are used.
 
@@ -114,9 +112,8 @@ ZFS pool `atl` is configured with `acltype: posix` and `aclmode: discard`. No NF
 
 | Export path | Client | Access | Mount point on Docker host |
 |---|---|---|---|
-| `/mnt/atl/immich` | 10.0.0.115 | rw | `/mnt/nfs/immich/uploads` |
-| `/mnt/atl/images` | 10.0.0.115 | ro | `/mnt/nfs/images` |
-| `/mnt/atl/home/brian` | 10.0.0.115 | ro | `/mnt/nfs/brian` |
+| `/mnt/atl/immich` | rw | `/mnt/nfs/immich/uploads` |
+| `/mnt/atl/images`  | ro | `/mnt/nfs/images` |
 
 Mount options: `nfsvers=4,hard,intr`. Mounts are persisted in `/etc/fstab` by the `nfs_client` role.
 
